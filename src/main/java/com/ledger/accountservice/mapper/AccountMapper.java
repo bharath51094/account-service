@@ -29,8 +29,6 @@ public class AccountMapper {
                 .accountId(account.getAccountId())
                 .balance(account.getBalance())
                 .currency(account.getCurrency())
-                .createdAt(account.getCreatedAt())
-                .updatedAt(account.getUpdatedAt())
                 .transactions(summaries)
                 .build();
     }
@@ -40,7 +38,6 @@ public class AccountMapper {
                 .transactionId(transaction.getTransactionId())
                 .type(transaction.getType().name())
                 .amount(transaction.getAmount())
-                .currency(transaction.getCurrency())
                 .eventTimestamp(transaction.getEventTimestamp())
                 .build();
     }

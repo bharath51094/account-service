@@ -43,19 +43,21 @@ public class AccountService {
         }
 
         try {
-            Account account = accountRepository.findByAccountId(accountId)
+            Account account = accountRepository.findByAccountIdForUpdate(accountId)
                     .orElseGet(() -> createAccount(accountId, request.getCurrency()));
             validateCurrency(account, request.getCurrency());
 
+            // Incremental running balance: previous balance +/- this request's amount.
+            // The account row is held under a pessimistic write lock, so concurrent
+            // transactions for the same account serialize and cannot lost-update the balance.
+            BigDecimal newBalance = computeNewBalance(account.getBalance(), request);
+            account.setBalance(newBalance);
+
             AccountTransaction transaction = transactionMapper.toEntity(request);
             account.addTransaction(transaction);
-            accountRepository.save(account); // cascades the new transaction insert
+            accountRepository.save(account); // cascade persists the new transaction + updated balance
 
-            BigDecimal balance = computeBalance(accountId);
-            account.setBalance(balance);
-            accountRepository.save(account);
-
-            TransactionResponse transactionResponse = transactionMapper.toResponse(transaction, accountId, balance);
+            TransactionResponse transactionResponse = transactionMapper.toResponse(transaction, accountId, newBalance);
             return new TransactionResult(transactionResponse, true);
         } catch (DataIntegrityViolationException e) {
             // Concurrent submission won the race on the unique transactionId; return the persisted state.
@@ -79,7 +81,7 @@ public class AccountService {
         Account account = accountRepository.findByAccountId(accountId)
                 .orElseThrow(() -> new AccountNotFoundException("Account not found: " + accountId));
         List<AccountTransaction> transactions =
-                transactionRepository.findByAccount_AccountIdOrderByEventTimestampDesc(accountId);
+                transactionRepository.findTop10ByAccount_AccountIdOrderByEventTimestampDesc(accountId);
         return accountMapper.toAccountResponse(account, transactions);
     }
 
@@ -99,9 +101,10 @@ public class AccountService {
         }
     }
 
-    private BigDecimal computeBalance(String accountId) {
-        BigDecimal credits = transactionRepository.sumByType(accountId, TransactionType.CREDIT);
-        BigDecimal debits = transactionRepository.sumByType(accountId, TransactionType.DEBIT);
-        return credits.subtract(debits);
+    private BigDecimal computeNewBalance(BigDecimal currentBalance, TransactionRequest request) {
+        BigDecimal amount = request.getAmount();
+        return TransactionType.valueOf(request.getType()) == TransactionType.CREDIT
+                ? currentBalance.add(amount)
+                : currentBalance.subtract(amount);
     }
 }

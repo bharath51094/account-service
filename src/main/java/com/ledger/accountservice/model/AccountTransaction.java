@@ -45,9 +45,6 @@ public class AccountTransaction {
     private BigDecimal amount;
 
     @Column(nullable = false)
-    private String currency;
-
-    @Column(nullable = false)
     private OffsetDateTime eventTimestamp;
 
     @ManyToOne(fetch = FetchType.LAZY)

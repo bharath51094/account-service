@@ -20,7 +20,6 @@ public class TransactionResponse {
     private String accountId;
     private String type;
     private BigDecimal amount;
-    private String currency;
     private OffsetDateTime eventTimestamp;
     private BigDecimal balance;
 }

@@ -16,7 +16,6 @@ public class TransactionMapper {
                 .transactionId(request.getTransactionId())
                 .type(TransactionType.valueOf(request.getType()))
                 .amount(request.getAmount())
-                .currency(request.getCurrency())
                 .eventTimestamp(request.getEventTimestamp())
                 .build();
     }
@@ -27,7 +26,6 @@ public class TransactionMapper {
                 .accountId(accountId)
                 .type(transaction.getType().name())
                 .amount(transaction.getAmount())
-                .currency(transaction.getCurrency())
                 .eventTimestamp(transaction.getEventTimestamp())
                 .balance(balance)
                 .build();
