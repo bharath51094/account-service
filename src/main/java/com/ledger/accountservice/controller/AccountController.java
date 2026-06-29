@@ -8,6 +8,7 @@ import com.ledger.accountservice.service.AccountService;
 import com.ledger.accountservice.service.TransactionResult;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +22,7 @@ import java.net.URI;
 @RestController
 @RequestMapping("/accounts")
 @RequiredArgsConstructor
+@Slf4j
 public class AccountController {
 
     private final AccountService accountService;
@@ -30,6 +32,7 @@ public class AccountController {
             @PathVariable("accountId") String accountId,
             @Valid @RequestBody TransactionRequest request) {
         accountId = accountId.trim();
+        log.info("Apply transaction request accountId={} transactionId={}", accountId, request.getTransactionId());
         TransactionResult transactionResult = accountService.applyTransaction(accountId, request);
         TransactionResponse transactionResponse = transactionResult.response();
 
@@ -43,11 +46,13 @@ public class AccountController {
 
     @GetMapping("/{accountId}/balance")
     public ResponseEntity<BalanceResponse> getBalance(@PathVariable("accountId") String accountId) {
+        log.info("Balance query accountId={}", accountId);
         return ResponseEntity.ok(accountService.getBalance(accountId.trim()));
     }
 
     @GetMapping("/{accountId}")
     public ResponseEntity<AccountResponse> getAccount(@PathVariable("accountId") String accountId) {
+        log.info("Account details query accountId={}", accountId);
         return ResponseEntity.ok(accountService.getAccount(accountId.trim()));
     }
 }

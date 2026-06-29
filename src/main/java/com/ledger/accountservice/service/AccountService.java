@@ -14,6 +14,7 @@ import com.ledger.accountservice.pojo.TransactionResponse;
 import com.ledger.accountservice.repository.AccountRepository;
 import com.ledger.accountservice.repository.AccountTransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AccountService {
 
     private final AccountRepository accountRepository;
@@ -36,6 +38,7 @@ public class AccountService {
         // Idempotency: a replayed transactionId must not be applied twice (would corrupt the balance).
         Optional<AccountTransaction> existingAccountTransaction = transactionRepository.findByTransactionId(request.getTransactionId());
         if (existingAccountTransaction.isPresent()) {
+            log.info("Duplicate transaction, no-op (idempotent) transactionId={}", request.getTransactionId());
             Account account = existingAccountTransaction.get().getAccount();
             TransactionResponse transactionResponse =
                     transactionMapper.toResponse(existingAccountTransaction.get(), accountId, account.getBalance());
@@ -56,6 +59,8 @@ public class AccountService {
             AccountTransaction transaction = transactionMapper.toEntity(request);
             account.addTransaction(transaction);
             accountRepository.save(account); // cascade persists the new transaction + updated balance
+            log.info("Transaction applied accountId={} transactionId={} balance={}",
+                    accountId, request.getTransactionId(), newBalance);
 
             TransactionResponse transactionResponse = transactionMapper.toResponse(transaction, accountId, newBalance);
             return new TransactionResult(transactionResponse, true);
