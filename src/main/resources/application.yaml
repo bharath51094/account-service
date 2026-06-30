@@ -17,6 +17,11 @@ spring:
       path: /h2-console
 server:
   port: 8081
+internal:
+  # Shared secret that the Event Service must present on /accounts/** calls. The Account Service is
+  # internal-only, so requests without this key are rejected with 401. Hard-coded for this take-home;
+  # a real deployment would source it from a secrets manager (or use mTLS) and never commit it.
+  api-key: local-internal-api-key
 management:
   endpoints:
     web:

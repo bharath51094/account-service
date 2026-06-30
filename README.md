@@ -80,6 +80,12 @@ ORDER BY t.EVENT_TIMESTAMP;
 | Logs | **structured JSON** (ECS) on the console — `@timestamp`, `log.level`, `service.name`, `traceId`, `message` |
 | Tracing | reuses the `X-Trace-Id` propagated by the Gateway (or generates one), so logs here share the **same trace id** as the originating Gateway request |
 | Health | `GET /health` (Actuator) — reports `UP`/`DOWN` plus DB connectivity |
+| Internal access control | `/accounts/**` require the shared secret header `X-Internal-Api-Key` (must equal `internal.api-key`); missing/wrong → **`401`**. Only the Gateway holds the key. `/health` and `/h2-console` stay open. |
+
+> **Internal-only auth.** Because this service is not public, the business APIs are gated by a shared
+> secret the Gateway sends on every call (`X-Internal-Api-Key`), validated by `InternalApiKeyFilter`.
+> The key is hard-coded in `application.yaml` (`internal.api-key`) for this take-home; a real deployment
+> would source it from a secrets manager or use mTLS, and would disable the H2 console.
 
 Key behaviours:
 - **Idempotency** — a replayed `transactionId` is not applied twice (balance unaffected).
@@ -104,24 +110,24 @@ Transaction payload (`POST /accounts/{accountId}/transactions`):
 
 | Method | Endpoint | Description | Success | Notes |
 |---|---|---|---|---|
-| `POST` | `/accounts/{accountId}/transactions` | Apply a transaction | `201` new / `200` duplicate | Idempotent on `transactionId`; `409` on currency mismatch |
-| `GET` | `/accounts/{accountId}/balance` | Current balance | `200` | `404` if account unknown |
-| `GET` | `/accounts/{accountId}` | Account details + recent transactions | `200` | last 10 transactions, newest first |
-| `GET` | `/health` | Health check | `200` | Actuator, includes DB status |
+| `POST` | `/accounts/{accountId}/transactions` | Apply a transaction | `201` new / `200` duplicate | Idempotent on `transactionId`; `409` on currency mismatch; `401` without a valid `X-Internal-Api-Key` |
+| `GET` | `/accounts/{accountId}/balance` | Current balance | `200` | `404` if account unknown; `401` without a valid `X-Internal-Api-Key` |
+| `GET` | `/accounts/{accountId}` | Account details + recent transactions | `200` | last 10 transactions, newest first; `401` without a valid `X-Internal-Api-Key` |
+| `GET` | `/health` | Health check | `200` | Actuator, includes DB status; no API key required |
 
-Examples:
+Examples (the `/accounts/**` calls require the internal API key — normally the Gateway supplies it):
 ```bash
 # Apply a transaction
 curl -i -X POST http://localhost:8081/accounts/acct-123/transactions \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: application/json" -H "X-Internal-Api-Key: local-internal-api-key" \
   -d '{"transactionId":"evt-001","type":"CREDIT","amount":150.00,"currency":"USD","eventTimestamp":"2026-05-15T14:02:11Z"}'
 
 # Balance
-curl http://localhost:8081/accounts/acct-123/balance
+curl -H "X-Internal-Api-Key: local-internal-api-key" http://localhost:8081/accounts/acct-123/balance
 
 # Account details + recent transactions
-curl http://localhost:8081/accounts/acct-123
+curl -H "X-Internal-Api-Key: local-internal-api-key" http://localhost:8081/accounts/acct-123
 
-# Health
+# Health (no key required)
 curl http://localhost:8081/health
 ```
